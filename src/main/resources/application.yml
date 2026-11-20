@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: email-notification-service
+  datasource:
+    url: jdbc:oracle:thin:@tvdclorigdb01.baf.ikano:1521:IORIGD01
+    username: IORIGTEST_OWNER
+    password: IORIGTEST_OWNER
+    driver-class-name: oracle.jdbc.driver.OracleDriver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.OracleDialect
+        format_sql: true
+        jdbc:
+          lob:
+            non_contextual_creation: true
+
+server:
+  port: 8080
