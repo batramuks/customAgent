@@ -1,0 +1,104 @@
+@startuml EmailNotificationAPI_Sequence
+!define ABOLD <b>
+!define AEND </b>
+
+title ABOLD Email Notification Service - API Sequence Diagram AEND
+
+actor Client
+participant "Controller\nEmailNotificationController" as Controller
+participant "Service\nEmailNotificationService" as Service
+participant "Repository\nIOrigNotificationRepository" as Repository
+participant "Database\nOracle IORIG_NOTIFICATION" as Database
+participant "ExceptionHandler\nGlobalExceptionHandler" as ExceptionHandler
+
+== Success Scenario ==
+
+Client -> Controller: POST /email/save\nApplicationEmailRequest
+activate Controller
+
+Controller -> Controller: Parse JSON Request
+Controller -> Service: saveEmailNotification(request)
+activate Service
+
+Service -> Service: Validate appId\n(Not null, Not empty)
+
+alt appId is null or empty
+    Service -> ExceptionHandler: throw ApplicationException\n(status: 400)
+    activate ExceptionHandler
+    ExceptionHandler -> Client: 400 BAD_REQUEST\n{status: 400,\nmessage: "Application ID is required"}
+    deactivate ExceptionHandler
+else appId is valid
+    Service -> Service: Convert Request to Entity\nIOrigNotification
+    Service -> Service: Map Fields:\nappId → APP_SEQ_ID\nssn → INTF_SSN\nappStatus → INTF_STAGE\nemailId → INTF_EMAIL_ID\nsubject → INTF_SUBJECT\ncontent → INTF_CONTENT (CLOB)\nlanguageCode → INTF_LANG_CODE\ncreatedBy → INTF_CREATED_BY
+    
+    Service -> Repository: save(notification)
+    activate Repository
+    
+    Repository -> Database: INSERT INTO IORIG_NOTIFICATION\n(APP_SEQ_ID, INTF_SSN, INTF_STAGE,\nINTF_EMAIL_ID, INTF_SUBJECT,\nINTF_CONTENT, INTF_LANG_CODE,\nINTF_CREATED_BY, INTF_CREATED_ON)
+    activate Database
+    
+    Database -> Database: Generate INTF_SEQ_ID\n(via Sequence)
+    Database -> Database: Set INTF_CREATED_ON\n(CURRENT_TIMESTAMP)
+    Database -> Database: Write CLOB Content\n(Hibernate LOB handling)
+    
+    Database --> Repository: Saved IOrigNotification\n(with generated ID)
+    deactivate Database
+    
+    Repository --> Service: IOrigNotification\n(interfaceSeqId: 1)
+    deactivate Repository
+    
+    Service -> Service: Build EmailNotificationResponse\nstatus: "SUCCESS"\nmessage: "Email notification saved successfully"\ninterfaceSeqId: 1
+    
+    Service --> Controller: EmailNotificationResponse
+    deactivate Service
+    
+    Controller -> Controller: Return ResponseEntity\n(HTTP 200 OK)
+    
+    Controller --> Client: 200 OK\n{interfaceSeqId: 1,\nstatus: "SUCCESS",\nmessage: "Email notification saved successfully"}
+end
+
+deactivate Controller
+
+== Error Scenario - Database Error ==
+
+Client -> Controller: POST /email/save\nApplicationEmailRequest (valid appId)
+activate Controller
+
+Controller -> Service: saveEmailNotification(request)
+activate Service
+
+Service -> Service: Validate appId ✓
+Service -> Service: Convert to Entity ✓
+Service -> Repository: save(notification)
+activate Repository
+
+Repository -> Database: INSERT...
+activate Database
+
+Database --> Database: Connection Error / Constraint Violation
+Database --> Repository: RuntimeException
+deactivate Database
+
+Repository --> Service: RuntimeException
+deactivate Repository
+
+Service --> ExceptionHandler: Propagate Exception
+activate ExceptionHandler
+
+ExceptionHandler -> ExceptionHandler: Catch Exception
+ExceptionHandler -> Client: 500 INTERNAL_SERVER_ERROR\n{status: 500,\nmessage: "Internal server error: ..."}
+deactivate ExceptionHandler
+
+deactivate Service
+deactivate Controller
+
+note over Client, Database
+  Key Points:
+  • Content field stored as CLOB (unlimited size)
+  • Sequence auto-generates INTF_SEQ_ID
+  • Timestamp auto-populated by DB
+  • Transactional service ensures data consistency
+  • Global exception handler catches all errors
+end note
+
+@enduml

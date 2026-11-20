@@ -1,0 +1,101 @@
+@startuml EmailNotificationAPI_ClassDiagram
+!define ABOLD <b>
+!define AEND </b>
+
+title ABOLD Email Notification Service - Class Diagram AEND
+
+package "Controller" {
+    class EmailNotificationController {
+        -service: EmailNotificationService
+        +saveEmailNotification(request: ApplicationEmailRequest): ResponseEntity<EmailNotificationResponse>
+    }
+}
+
+package "Service" {
+    class EmailNotificationService {
+        -repository: IOrigNotificationRepository
+        +saveEmailNotification(request: ApplicationEmailRequest): EmailNotificationResponse
+        -validateAppId(appId: String): void
+    }
+}
+
+package "Repository" {
+    interface IOrigNotificationRepository extends JpaRepository {
+    }
+}
+
+package "Entity" {
+    class IOrigNotification {
+        -interfaceSeqId: Long
+        -appSeqId: Long
+        -emailId: String
+        -ssn: String
+        -stage: String
+        -subject: String
+        -content: String (CLOB)
+        -languageCode: String
+        -createdBy: String
+        -createdOn: LocalDateTime
+    }
+}
+
+package "DTO" {
+    class ApplicationEmailRequest {
+        -appId: String
+        -ssn: String
+        -appStatus: String
+        -emailId: String
+        -subject: String
+        -content: String
+        -createdBy: String
+        -languageCode: String
+    }
+    
+    class EmailNotificationResponse {
+        -interfaceSeqId: Long
+        -message: String
+        -status: String
+    }
+}
+
+package "Exception" {
+    class ApplicationException extends RuntimeException {
+        -statusCode: int
+        +getStatusCode(): int
+    }
+    
+    class ErrorResponse {
+        -status: int
+        -message: String
+        -timestamp: String
+    }
+    
+    class GlobalExceptionHandler {
+        +handleApplicationException(ex: ApplicationException): ResponseEntity<ErrorResponse>
+        +handleGeneralException(ex: Exception): ResponseEntity<ErrorResponse>
+    }
+}
+
+EmailNotificationController --> EmailNotificationService: uses
+EmailNotificationService --> IOrigNotificationRepository: uses
+IOrigNotificationRepository --> IOrigNotification: manages
+EmailNotificationService --> ApplicationEmailRequest: accepts
+EmailNotificationService --> EmailNotificationResponse: returns
+EmailNotificationService --> ApplicationException: throws
+GlobalExceptionHandler --> ApplicationException: handles
+GlobalExceptionHandler --> ErrorResponse: returns
+EmailNotificationService --> IOrigNotification: creates
+
+note on link EmailNotificationController --> EmailNotificationService
+  Injection via Constructor
+end note
+
+note on link EmailNotificationService --> IOrigNotificationRepository
+  Spring Data JPA
+end note
+
+note on link IOrigNotificationRepository --> IOrigNotification
+  ORM Mapping via JPA
+end note
+
+@enduml

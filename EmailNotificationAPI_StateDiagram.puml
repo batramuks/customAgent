@@ -1,0 +1,73 @@
+@startuml EmailNotificationAPI_StateDiagram
+!define ABOLD <b>
+!define AEND </b>
+
+title ABOLD Email Notification Service - Request State Diagram AEND
+
+[*] --> ReceiveRequest: POST /email/save
+
+ReceiveRequest --> ParseRequest: Parse JSON to\nApplicationEmailRequest
+ParseRequest --> ValidateAppId: Extract appId
+
+ValidateAppId --> AppIdNull: appId == null?\nOR\nappId.isEmpty()?
+
+AppIdNull --> ReturnError400: YES\nThrow ApplicationException\n(400)
+AppIdNull --> ConvertEntity: NO
+
+ReturnError400 --> SendError: Build ErrorResponse\nstatus: 400
+
+ConvertEntity --> MapFields: Map request fields\nto IOrigNotification
+
+MapFields --> CallRepository: Save to Repository
+CallRepository --> DatabaseSave: Execute INSERT\nINTO IORIG_NOTIFICATION
+
+DatabaseSave --> GenerateSequence: Generate INTF_SEQ_ID\n(via Sequence)
+GenerateSequence --> GenerateTimestamp: Set INTF_CREATED_ON\n(CURRENT_TIMESTAMP)
+
+GenerateTimestamp --> WriteCLOB: Write content\nas CLOB\n(Hibernate LOB)
+
+WriteCLOB --> DatabaseSuccess: Commit Transaction
+
+DatabaseSuccess --> BuildResponse: Build\nEmailNotificationResponse
+
+BuildResponse --> ReturnSuccess: Return HTTP 200 OK\n+ Response Body
+
+DatabaseSuccess --> DatabaseError: Exception during\nINSERT?
+
+DatabaseError --> ReturnError500: YES\nThrow RuntimeException
+
+ReturnError500 --> SendError: Build ErrorResponse\nstatus: 500
+
+SendError --> [*]
+ReturnSuccess --> [*]
+
+note right of ParseRequest
+  Spring Web
+  JSON deserialization
+end note
+
+note right of ValidateAppId
+  DTO validation
+end note
+
+note right of AppIdNull
+  Business Logic
+  Validation
+end note
+
+note right of CallRepository
+  Spring Data JPA
+  Hibernate ORM
+end note
+
+note right of GenerateSequence
+  Oracle Database
+  Default values
+end note
+
+note right of WriteCLOB
+  Hibernate CLOB
+  Stream handling
+end note
+
+@enduml

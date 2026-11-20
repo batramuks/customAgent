@@ -1,0 +1,65 @@
+@startuml EmailNotificationAPI_ComponentDiagram
+!define ABOLD <b>
+!define AEND </b>
+
+title ABOLD Email Notification Service - Component Diagram AEND
+
+package "Client Application" {
+    component [HTTP Client]
+}
+
+package "Spring Boot Application" {
+    package "REST API Layer" {
+        component [EmailNotificationController]
+    }
+    
+    package "Service Layer" {
+        component [EmailNotificationService]
+        component [Exception Handler]
+    }
+    
+    package "Data Access Layer" {
+        component [IOrigNotificationRepository]
+        component [JPA Entity Mapper]
+    }
+    
+    package "Configuration" {
+        component [Application Configuration]
+        component [Hibernate Configuration]
+    }
+}
+
+package "Oracle Database" {
+    component [IORIG_NOTIFICATION Table]
+    component [Oracle JDBC Driver]
+}
+
+[HTTP Client] --> [EmailNotificationController]: REST API\nPOST /email/save
+[EmailNotificationController] --> [EmailNotificationService]: saveEmailNotification()
+[EmailNotificationService] --> [Exception Handler]: Error Handling
+[EmailNotificationService] --> [IOrigNotificationRepository]: save()
+[IOrigNotificationRepository] --> [JPA Entity Mapper]: Entity Mapping
+[JPA Entity Mapper] --> [Oracle JDBC Driver]: JDBC Connection
+[Oracle JDBC Driver] --> [IORIG_NOTIFICATION Table]: SQL INSERT
+[Application Configuration] --> [EmailNotificationService]: Inject Dependencies
+[Hibernate Configuration] --> [JPA Entity Mapper]: CLOB Configuration
+[Hibernate Configuration] --> [Oracle JDBC Driver]: LOB Handling
+
+note on link [HTTP Client] --> [EmailNotificationController]
+  ApplicationEmailRequest JSON
+end note
+
+note on link [IOrigNotificationRepository] --> [JPA Entity Mapper]
+  Spring Data JPA
+end note
+
+note on link [JPA Entity Mapper] --> [Oracle JDBC Driver]
+  Hibernate ORM
+end note
+
+note on link [Hibernate Configuration] --> [Oracle JDBC Driver]
+  non_contextual_creation: true
+  for CLOB handling
+end note
+
+@enduml
